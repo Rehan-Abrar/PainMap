@@ -2,14 +2,6 @@
 
 > Find where markets hurt. Aggregate user complaints from Hacker News and Reddit, cluster them into pain themes, and generate startup ideas grounded in real user language.
 
-## Quick demo (recommended for your recording)
-
-1. Start the local server (see Run section).
-2. Open the app in your browser and select the `Student Productivity` chip.
-3. Click **Find Pain Points →** and wait for the feed to populate.
-4. Show the quote feed and highlight any Reddit links that appear.
-5. Click a bubble to generate an idea, then run the Stress Test.
-6. Save an insight and show the updated `PROJECT_LOG.md` entry.
 
 ## Features
 
