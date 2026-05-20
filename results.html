@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PainMap — Signal Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* ─── PAGE SPECIFIC LAYOUT ─── */
+        body {
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* ─── LOADING ZONE ─── */
+        #loadingZone {
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+            background: var(--bg-base);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+        }
+
+        .loading-logo {
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: pulse-anim 2s ease infinite;
+        }
+
+        .loading-text {
+            font-family: var(--font-mono);
+            font-size: 14px;
+            color: var(--text-secondary);
+            height: 20px;
+            transition: opacity 0.3s;
+        }
+
+        /* ─── RESULTS ZONE ─── */
+        #resultsZone {
+            display: none; /* Shown via JS */
+            grid-template-columns: 400px 1fr;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ─── LEFT PANEL (FEED) ─── */
+        .left-panel {
+            background: var(--bg-surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-title {
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+        }
+
+        .feed-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Quote Cards */
+        .quote-card {
+            background: var(--bg-card);
+            border: 1px solid var(--bg-card-border);
+            border-radius: var(--r-md);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: all 0.2s;
+            animation: fadeUp 0.5s ease both;
+        }
+
+        .quote-card:hover {
+            border-color: rgba(255,255,255,0.1);
+            transform: translateY(-2px);
+        }
+
+        .quote-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .quote-score {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+
+        .quote-text {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text-primary);
+        }
+
+        .quote-link {
+            font-size: 11px;
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+
+        .quote-link:hover {
+            opacity: 1;
+        }
+
+        /* ─── RIGHT PANEL (VISUALIZATION) ─── */
+        .right-panel {
+            position: relative;
+            background: var(--bg-base);
+            display: flex;
+            flex-direction: column;
+        }
+
+        #bubbleMap {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #bubblePlaceholder {
+            text-align: center;
+            color: var(--text-tertiary);
+        }
+
+        /* ─── IDEA PANEL (SLIDE UP) ─── */
+        #ideaPanel {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-surface);
+            border-top: 1px solid var(--border);
+            padding: 32px;
+            transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 100;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 -20px 40px rgba(0,0,0,0.5);
+        }
+
+        #ideaPanel.visible {
+            transform: translateY(0);
+        }
+
+        /* Idea Card Styling */
+        .idea-card {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .idea-cluster-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--accent-dim);
+            border: 1px solid var(--accent-border);
+            color: var(--accent);
+            padding: 4px 12px;
+            border-radius: var(--r-full);
+            font-size: 11px;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 20px;
+        }
+
+        .idea-title {
+            font-size: clamp(24px, 4vw, 36px);
+            margin-bottom: 24px;
+        }
+
+        .idea-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .idea-field {
+            padding: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--bg-card-border);
+            border-radius: var(--r-md);
+        }
+
+        .idea-field-label {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-tertiary);
+            margin-bottom: 8px;
+        }
+
+        .idea-field-value {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--text-primary);
+        }
+
+        .idea-field--warning {
+            border-color: rgba(249, 115, 22, 0.2);
+            background: rgba(249, 115, 22, 0.03);
+        }
+
+        .idea-actions {
+            margin-top: 32px;
+            display: flex;
+            gap: 12px;
+        }
+
+        /* Stress Test Face */
+        .idea-face.idea-back {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .stress-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .stress-verdict {
+            padding: 6px 14px;
+            border-radius: var(--r-full);
+            font-size: 12px;
+            font-weight: 700;
+            border: 1px solid transparent;
+        }
+
+        .stress-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .stress-field {
+            padding: 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--bg-card-border);
+            border-radius: var(--r-md);
+        }
+
+        .stress-field-label {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-tertiary);
+            margin-bottom: 6px;
+        }
+
+        .stress-field--danger {
+            border-color: rgba(239, 68, 68, 0.2);
+            background: rgba(239, 68, 68, 0.03);
+        }
+
+        /* ─── DRAWER ─── */
+        .drawer {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 360px;
+            height: 100vh;
+            background: var(--bg-surface);
+            border-left: 1px solid var(--border);
+            z-index: var(--z-drawer);
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            box-shadow: -20px 0 40px rgba(0,0,0,0.5);
+        }
+
+        .drawer.open {
+            transform: translateX(0);
+        }
+
+        .drawer-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .drawer-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .drawer-item {
+            background: var(--bg-card);
+            border: 1px solid var(--bg-card-border);
+            border-radius: var(--r-md);
+            padding: 16px;
+        }
+
+        .drawer-item-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 10px;
+            font-family: var(--font-mono);
+            color: var(--text-tertiary);
+        }
+
+        .drawer-item-idea {
+            font-weight: 700;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+
+        /* ─── SETTINGS MODAL (API KEY) ─── */
+        #settingsModal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(8px);
+            z-index: 500;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            padding: 32px;
+            border-radius: var(--r-lg);
+            width: 100%;
+            max-width: 440px;
+            text-align: center;
+        }
+
+        .modal-card h2 {
+            margin-bottom: 12px;
+        }
+
+        .modal-card p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .api-input {
+            width: 100%;
+            background: var(--bg-card);
+            border: 1px solid var(--bg-card-border);
+            padding: 12px 16px;
+            border-radius: var(--r-md);
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            margin-bottom: 20px;
+            outline: none;
+        }
+
+        .api-input:focus {
+            border-color: var(--accent);
+        }
+
+        /* ─── STATUS BAR ─── */
+        .status-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: pulse-anim 1.5s infinite;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <a href="index.html" class="nav-logo">
+            <div class="logo-icon">⚡</div>
+            PainMap
+        </a>
+
+        <div class="nav-center">
+            <div id="domainBadge" class="nav-domain-tag">Scanning: <span>...</span></div>
+            <div id="signalCount" class="nav-count"><strong>0</strong> signals found</div>
+        </div>
+
+        <div class="nav-right">
+            <button class="btn btn-ghost btn-sm" onclick="toggleDrawer()">
+                Saved Insights (<span id="drawerCount">0</span>)
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="showSettings()">⚙</button>
+        </div>
+    </nav>
+
+    <main>
+        <!-- LOADING ZONE -->
+        <div id="loadingZone">
+            <div class="loading-logo">⚡ PainMap</div>
+            <div id="stageText" class="loading-text">Scanning the internet for pain...</div>
+            <div class="spinner"></div>
+        </div>
+
+        <!-- RESULTS ZONE -->
+        <div id="resultsZone">
+            
+            <!-- LEFT PANEL: FEED -->
+            <aside class="left-panel">
+                <div class="panel-header">
+                    <span class="panel-title">Raw Signals</span>
+                    <span class="label-xs">Live Stream</span>
+                </div>
+                <div id="quoteFeed" class="feed-container">
+                    <!-- Cards injected by JS -->
+                </div>
+            </aside>
+
+            <!-- RIGHT PANEL: VIZ -->
+            <section class="right-panel">
+                <div id="bubbleMap">
+                    <div id="bubblePlaceholder">
+                        <div style="font-size: 40px; margin-bottom: 12px;">🛰</div>
+                        <div>Mapping clusters...</div>
+                    </div>
+                </div>
+
+                <!-- IDEA SLIDE UP -->
+                <div id="ideaPanel">
+                    <!-- Idea content injected by JS -->
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- DRAWER -->
+    <div id="insightsDrawer" class="drawer">
+        <div class="drawer-header">
+            <h3>Saved Insights</h3>
+            <button class="btn btn-ghost btn-sm" onclick="toggleDrawer()">✕</button>
+        </div>
+        <div class="drawer-list">
+            <!-- Saved items -->
+        </div>
+    </div>
+
+
+    <!-- SCRIPTS -->
+    <script src="gemini.js"></script>
+    <script src="ui.js"></script>
+    <script src="app.js"></script>
+
+    <script>
+        // Init — no API keys needed, they live on the server
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const domain = params.get('domain');
+
+            if (!domain) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Set domain badge
+            document.querySelector('#domainBadge span').textContent = domain;
+
+            // Start immediately — backend holds the keys
+            window.APP.runPainMap(domain);
+        });
+    </script>
+
+</body>
+</html>
